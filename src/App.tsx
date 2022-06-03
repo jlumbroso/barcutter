@@ -1,11 +1,15 @@
 import React from "react"
-import { Document, Page } from "react-pdf/dist/esm/entry.webpack5"
+import { Document, Page } from "react-pdf" ///dist/esm/entry.webpack5"
+//import { Document, Page } from "react-pdf/dist/esm/entry.webpack5"
 import { PDFPageProxy } from "pdfjs-dist/types/src/display/api"
 
 import "./App.css"
 
 // @ts-ignore
 import samplePDF from "./k522-venice.pdf"
+
+import { pdfjs } from "react-pdf"
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 enum BarCuttingSequence {
   Empty = 0,

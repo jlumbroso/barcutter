@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "homepage": "https://jlumbroso.github.io/barcutter",
   "private": true,
-  "babel": {
-    "presets": ["@babel/preset-env"]
-  },
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^12.1.4",
@@ -28,6 +25,11 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-pdf$": "react-pdf/dist/umd/entry.jest"
+    }
   },
   "eslintConfig": {
     "extends": [
@@ -66,7 +68,6 @@
     ]
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.18.2",
     "@types/react-pdf": "^5.7.2",
     "gh-pages": "^3.2.3"
   }
