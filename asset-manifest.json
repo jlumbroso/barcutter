@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "/react-ts-starter/static/css/main.073c9b0a.css",
-    "main.js": "/react-ts-starter/static/js/main.5d83ee0b.js",
-    "static/js/787.dbd015b8.chunk.js": "/react-ts-starter/static/js/787.dbd015b8.chunk.js",
-    "static/media/logo.svg": "/react-ts-starter/static/media/logo.6ce24c58023cc2f8fd88fe9d219db6c6.svg",
-    "index.html": "/react-ts-starter/index.html",
-    "main.073c9b0a.css.map": "/react-ts-starter/static/css/main.073c9b0a.css.map",
-    "main.5d83ee0b.js.map": "/react-ts-starter/static/js/main.5d83ee0b.js.map",
-    "787.dbd015b8.chunk.js.map": "/react-ts-starter/static/js/787.dbd015b8.chunk.js.map"
+    "main.css": "/barcutter/static/css/main.073c9b0a.css",
+    "main.js": "/barcutter/static/js/main.27845bd3.js",
+    "static/js/787.4e8357a3.chunk.js": "/barcutter/static/js/787.4e8357a3.chunk.js",
+    "static/media/k522-venice.pdf": "/barcutter/static/media/k522-venice.e59e5076e7afc608ddc7.pdf",
+    "index.html": "/barcutter/index.html",
+    "main.073c9b0a.css.map": "/barcutter/static/css/main.073c9b0a.css.map",
+    "main.27845bd3.js.map": "/barcutter/static/js/main.27845bd3.js.map",
+    "787.4e8357a3.chunk.js.map": "/barcutter/static/js/787.4e8357a3.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.073c9b0a.css",
-    "static/js/main.5d83ee0b.js"
+    "static/js/main.27845bd3.js"
   ]
 }
