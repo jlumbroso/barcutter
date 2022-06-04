@@ -61,6 +61,7 @@ type Props = {}
 
 type State = {
   page: PDFPageProxy | undefined
+  pageData: any
   stage: BarCuttingStage
   topLeftCorner: Point2D | undefined
   topRightCorner: Point2D | undefined
@@ -71,6 +72,7 @@ type State = {
 class App extends React.Component<Props, State> {
   state: State = {
     stage: BarCuttingStage.Empty,
+    pageData: undefined,
     page: undefined,
     topLeftCorner: undefined,
     topRightCorner: undefined,
@@ -83,6 +85,22 @@ class App extends React.Component<Props, State> {
     page: PDFPageProxy
   ) => {
     const { canvas, ctx, rect, x, y } = prepCanvasEvent(event)
+
+    console.log(
+      `x: ${x}, y: ${y}, page: ${page.pageNumber}, stage: ${this.state.stage}`
+    )
+
+    if (!this.state.pageData) {
+      this.state.pageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    }
+
+    if (!canvas.onmousemove) {
+      canvas.addEventListener(
+        "mousemove",
+        (e) => this.onCanvasMouseMove(e),
+        false
+      )
+    }
 
     switch (this.state.stage) {
       case BarCuttingStage.TopLeft:
@@ -105,20 +123,117 @@ class App extends React.Component<Props, State> {
         break
     }
 
-    ctx.beginPath()
-    ctx.arc(x, y, 1, 0, 2 * Math.PI, true)
-    ctx.stroke()
+    this.redraw(ctx)
+  }
+
+  onCanvasMouseMove = (event: MouseEvent) => {
+    const { canvas, ctx, rect, x, y } = prepCanvasEvent(event as any)
+    //
+    console.log("mouse move")
+    switch (this.state.stage) {
+      case BarCuttingStage.TopRight:
+        this.state.topRightCorner = { x, y }
+        break
+
+      case BarCuttingStage.Height:
+        this.state.staffHeightPoint = { x, y }
+        break
+    }
+    this.redraw(ctx)
   }
 
   onLoad = (page: PDFPageProxy) => {
     this.state.page = page
-    this.state.stage = BarCuttingStage.Loaded
+    if (this.state.stage == BarCuttingStage.Empty)
+      this.state.stage = BarCuttingStage.Loaded
 
-    page.getViewport
+    // DEBUG init
+    this.state.stage = BarCuttingStage.Height
+    this.state.topLeftCorner = { x: 340, y: 128 }
+    this.state.topRightCorner = { x: 1016, y: 116 }
+
+    const canvas = document.getElementsByTagName("canvas")[0]
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
+    this.state.pageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+    if (!canvas.onmousemove) {
+      canvas.addEventListener(
+        "mousemove",
+        (e) => this.onCanvasMouseMove(e),
+        false
+      )
+    }
+
+    this.redraw(ctx)
   }
 
-  redraw = () => {
-    // load PDF
+  drawPoint = (ctx: CanvasRenderingContext2D, point: Point2D) => {
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI, true)
+    //ctx.arc(point.x, point.y, 1, 0, 2 * Math.PI, true)
+    ctx.stroke()
+  }
+
+  drawLine = (
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ) => {
+    ctx.beginPath()
+    // @ts-ignore
+    ctx.arc(x1, y1, 1, 0, 2 * Math.PI, true)
+    ctx.arc(x2, y2, 1, 0, 2 * Math.PI, true)
+    ctx.stroke()
+  }
+
+  redraw = (ctx: CanvasRenderingContext2D) => {
+    // refresh PDF background
+    ctx.putImageData(this.state.pageData, 0, 0)
+
+    // draw the points
+    if (!this.state.topLeftCorner) return
+    this.drawPoint(ctx, this.state.topLeftCorner)
+    if (!this.state.topRightCorner) return
+    this.drawPoint(ctx, this.state.topRightCorner)
+    this.drawLine(
+      ctx,
+      this.state.topLeftCorner.x,
+      this.state.topLeftCorner.y,
+      this.state.topRightCorner.x,
+      this.state.topRightCorner.y
+    )
+    if (!this.state.staffHeightPoint) return
+    this.drawPoint(ctx, this.state.staffHeightPoint)
+
+    //
+    const distance = measureDistance(
+      this.state.topLeftCorner,
+      this.state.topRightCorner
+    )
+    if (distance == 0) return
+    const dx =
+      (this.state.topRightCorner.x - this.state.topLeftCorner.x) / distance
+    const dy =
+      (this.state.topRightCorner.y - this.state.topLeftCorner.y) / distance
+
+    const height = measureHeightFromPoints(
+      this.state.topLeftCorner,
+      this.state.topRightCorner,
+      this.state.staffHeightPoint
+    )
+
+    const proportion = measureProportionOnLine(
+      this.state.topLeftCorner,
+      this.state.topRightCorner,
+      this.state.staffHeightPoint
+    )
+    //console.log(proportion)
+    this.drawPoint(ctx, {
+      x: this.state.topLeftCorner.x + dx * proportion * distance,
+      y: this.state.topLeftCorner.y + dy * proportion * distance,
+    })
   }
 
   render() {
@@ -129,13 +244,137 @@ class App extends React.Component<Props, State> {
             <Page
               pageNumber={1}
               onClick={this.onCanvasClick}
-              onLoadSuccess={this.onLoad}
+              onRenderSuccess={this.onLoad}
             />
           </Document>
         </header>
       </div>
     )
   }
+}
+
+const measureProportionOnLine = (
+  p1: Point2D,
+  p2: Point2D,
+  pMiddle: Point2D
+) => {
+  //
+  const height = measureHeightFromPoints(p1, p2, pMiddle)
+  const angle = measureAngleFromPoints(p2, pMiddle, p1)
+
+  // we are trying to compute the adjacent side of the triangle
+  // given: (a) hypothenuse (height) and (b) angle
+
+  const segment = height / Math.sin(angle)
+
+  const distance = measureDistance(p1, p2)
+  const proportion = segment / distance
+  console.log(
+    `segment: ${segment} distance: ${distance} proportion: ${proportion}`
+  )
+  return proportion
+}
+
+const measureLineDiff = (p1: Point2D, p2: Point2D) => {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const length = Math.sqrt(dx * dx + dy * dy)
+  return {
+    dx: dx / length,
+    dy: dy / length,
+    length: length,
+  }
+}
+
+const measureDistance = (p1: Point2D, p2: Point2D) => {
+  return measureLineDiff(p1, p2).length
+}
+
+const measureHeightFromPoints = (
+  p1: Point2D,
+  p2: Point2D,
+  pMiddle: Point2D
+) => {
+  const area = measureTriangleAreaFromPoints(p1, p2, pMiddle)
+  const base = measureDistance(p1, p2)
+  return (2 * area) / base
+}
+
+const measureTriangleAreaFromPoints = (
+  p1: Point2D,
+  p2: Point2D,
+  p3: Point2D
+) => {
+  const a = measureDistance(p1, p2)
+  const b = measureDistance(p2, p3)
+  const c = measureDistance(p3, p1)
+  const s = (a + b + c) / 2
+  return Math.sqrt(s * (s - a) * (s - b) * (s - c))
+}
+
+type degree = number
+type radian = number
+
+// Converts radians to degrees.
+function radianToDegrees(angle: radian): degree {
+  return angle * (180 / Math.PI)
+}
+
+// Converts degrees to radians.
+function degreesToRadian(angle: degree): radian {
+  return angle * (Math.PI / 180)
+}
+
+function getLineAngle(p1: Point2D, p2: Point2D): radian {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const angle = Math.atan2(dy, dx)
+  return angle
+}
+
+function measureAngleFromPoints(
+  p1: Point2D,
+  p2: Point2D,
+  pMiddle: Point2D
+): radian {
+  var AB = Math.sqrt(
+    Math.pow(pMiddle.x - p1.x, 2) + Math.pow(pMiddle.y - p1.y, 2)
+  )
+  var BC = Math.sqrt(
+    Math.pow(pMiddle.x - p2.x, 2) + Math.pow(pMiddle.y - p2.y, 2)
+  )
+  var AC = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
+  return Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB))
+}
+const measureAngleFromPoints2 = (
+  p1: Point2D,
+  p2: Point2D,
+  pMiddle: Point2D
+) => {
+  // Measure angle in this configuration:
+  //   p1
+  //  /
+  // pMiddle -- p2
+
+  const numerator =
+    p1.y * (pMiddle.x - p2.x) +
+    pMiddle.y * (p2.x - p1.x) +
+    p2.y * (p1.x - pMiddle.x)
+  const denominator =
+    (p1.x - pMiddle.x) * (pMiddle.x - p2.x) +
+    (p1.y - pMiddle.y) * (pMiddle.y - p2.y)
+  const ratio = numerator / denominator
+
+  const angleRad = Math.atan(ratio)
+  //return angleRad
+
+  const angleDeg = (angleRad * 180) / Math.PI
+
+  if (angleDeg < 0) {
+    return angleDeg + 180
+  }
+
+  return angleDeg
 }
 
 export default App
