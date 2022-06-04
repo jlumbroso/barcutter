@@ -144,7 +144,7 @@ class App extends React.Component<Props, State> {
 
   onLoad = (page: PDFPageProxy) => {
     this.state.page = page
-    if (this.state.stage == BarCuttingStage.Empty)
+    if (this.state.stage === BarCuttingStage.Empty)
       this.state.stage = BarCuttingStage.Loaded
 
     // DEBUG init
@@ -212,17 +212,20 @@ class App extends React.Component<Props, State> {
       this.state.topLeftCorner,
       this.state.topRightCorner
     )
-    if (distance == 0) return
+    if (distance === 0) return
     const dx =
-      (this.state.topRightCorner.x - this.state.topLeftCorner.x) / distance
+      (this.state.topLeftCorner.x - this.state.topRightCorner.x) / distance
     const dy =
-      (this.state.topRightCorner.y - this.state.topLeftCorner.y) / distance
+      (this.state.topLeftCorner.y - this.state.topRightCorner.y) / distance
 
     const height = measureHeightFromPoints(
       this.state.topLeftCorner,
       this.state.topRightCorner,
       this.state.staffHeightPoint
     )
+
+    const vecU = { dx, dy }
+    const vecV = { dx: dy, dy: -dx }
 
     const proportion = measureProportionOnLine(
       this.state.topLeftCorner,
@@ -231,8 +234,8 @@ class App extends React.Component<Props, State> {
     )
     //console.log(proportion)
     this.drawPoint(ctx, {
-      x: this.state.topLeftCorner.x + dx * proportion * distance,
-      y: this.state.topLeftCorner.y + dy * proportion * distance,
+      x: this.state.staffHeightPoint.x - vecV.dx * height,
+      y: this.state.staffHeightPoint.y - vecV.dy * height,
     })
   }
 
