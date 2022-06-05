@@ -66,6 +66,7 @@ type State = {
   topLeftCorner: Point2D | undefined
   topRightCorner: Point2D | undefined
   staffHeightPoint: Point2D | undefined
+  cuttingPoint: Point2D | undefined
   barBreakPoints: Point2D[]
 }
 
@@ -77,6 +78,7 @@ class App extends React.Component<Props, State> {
     topLeftCorner: undefined,
     topRightCorner: undefined,
     staffHeightPoint: undefined,
+    cuttingPoint: undefined,
     barBreakPoints: [],
   }
 
@@ -156,6 +158,12 @@ class App extends React.Component<Props, State> {
       case BarCuttingStage.Height:
         this.setState({
           staffHeightPoint: { x, y },
+        })
+        break
+
+      case BarCuttingStage.Cutting:
+        this.setState({
+          cuttingPoint: { x, y },
         })
         break
     }
@@ -267,34 +275,36 @@ class App extends React.Component<Props, State> {
     const vecU = { dx, dy }
     const vecV = { dx: dy, dy: -dx }
 
-    const proportion = measureProportionOnLine(
-      this.state.topLeftCorner,
-      this.state.topRightCorner,
-      this.state.staffHeightPoint
-    )
-    //console.log(proportion)
-
     // a point on the first line
     this.drawPoint(ctx, {
       x: this.state.staffHeightPoint.x - vecV.dx * height,
       y: this.state.staffHeightPoint.y - vecV.dy * height,
     })
 
+    // compute points
+    const bottomLeftCorner = {
+      x: this.state.topLeftCorner.x + vecV.dx * height,
+      y: this.state.topLeftCorner.y + vecV.dy * height,
+    }
+    const bottomRightCorner = {
+      x: this.state.topRightCorner.x + vecV.dx * height,
+      y: this.state.topRightCorner.y + vecV.dy * height,
+    }
+
     ctx.lineWidth = 4
     this.drawLine(
       ctx,
-      this.state.topLeftCorner.x + vecV.dx * height,
-      this.state.topLeftCorner.y + vecV.dy * height,
-      this.state.topRightCorner.x + vecV.dx * height,
-      this.state.topRightCorner.y + vecV.dy * height
+      bottomLeftCorner.x,
+      bottomLeftCorner.y,
+      bottomRightCorner.x,
+      bottomRightCorner.y
     )
 
     // sides
-
     this.drawLine(
       ctx,
-      this.state.topLeftCorner.x + vecV.dx * height,
-      this.state.topLeftCorner.y + vecV.dy * height,
+      bottomLeftCorner.x,
+      bottomLeftCorner.y,
       this.state.topLeftCorner.x,
       this.state.topLeftCorner.y
     )
@@ -302,9 +312,51 @@ class App extends React.Component<Props, State> {
       ctx,
       this.state.topRightCorner.x,
       this.state.topRightCorner.y,
-      this.state.topRightCorner.x + vecV.dx * height,
-      this.state.topRightCorner.y + vecV.dy * height
+      bottomRightCorner.x,
+      bottomRightCorner.y
     )
+
+    // cutting points
+    if (!this.state.cuttingPoint) return
+    this.drawPoint(ctx, this.state.cuttingPoint)
+
+    const height2 = measureHeightFromPoints(
+      this.state.topLeftCorner,
+      this.state.topRightCorner,
+      this.state.cuttingPoint
+    )
+    const height3 = measureHeightFromPoints(
+      bottomLeftCorner,
+      bottomRightCorner,
+      this.state.cuttingPoint
+    )
+    this.drawLine(
+      ctx,
+      this.state.cuttingPoint.x - vecV.dx * height2,
+      this.state.cuttingPoint.y - vecV.dy * height2,
+      this.state.cuttingPoint.x + vecV.dx * height3,
+      this.state.cuttingPoint.y + vecV.dy * height3
+    )
+
+    return
+    // const height2 = measureHeightFromPoints(
+    //   this.state.topLeftCorner,
+    //   this.state.topRightCorner,
+    //   this.state.cuttingPoint
+    // )
+    // const A = {
+    //   x: this.state.topLeftCorner.x + vecV.dx * height2,
+    //   y: this.state.topLeftCorner.y + vecV.dy * height2,
+    // }
+    // const B = {
+    //   x: this.state.topRightCorner.x + vecV.dx * height2,
+    //   y: this.state.topRightCorner.y + vecV.dy * height2,
+    // }
+    // this.drawPoint(ctx, {
+    //   x: this.state.cuttingPoint.x - vecV.dx * height,
+    //   y: this.state.cuttingPoint.y - vecV.dy * height,
+    // })
+    // this.drawLine(ctx, A.x, A.y, B.x, B.y)
   }
 
   render() {
@@ -324,6 +376,30 @@ class App extends React.Component<Props, State> {
   }
 }
 
+const projectPointOnLine = (p1: Point2D, p2: Point2D, pProject: Point2D) => {
+  // p1 x---X-----x p2
+  //        |
+  //        x pProject
+  //
+
+  const distance = measureDistance(p1, p2)
+  if (distance === 0) return
+
+  const dx = (p1.x - p2.x) / distance
+  const dy = (p1.y - p2.y) / distance
+
+  const vecLineP1toP2 = { dx, dy }
+  const vecOrthogonalToLineP1toP2 = { dx: dy, dy: -dx }
+
+  const height = measureHeightFromPoints(p1, p2, pProject)
+
+  return {
+    x: pProject.x - vecOrthogonalToLineP1toP2.dx * height,
+    y: pProject.y - vecOrthogonalToLineP1toP2.dy * height,
+  }
+}
+
+// SUSPICIOUS CODE
 const measureProportionOnLine = (
   p1: Point2D,
   p2: Point2D,
