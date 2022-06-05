@@ -91,7 +91,9 @@ class App extends React.Component<Props, State> {
     )
 
     if (!this.state.pageData) {
-      this.state.pageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      this.setState({
+        pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+      })
     }
 
     if (!canvas.onmousemove) {
@@ -104,22 +106,30 @@ class App extends React.Component<Props, State> {
 
     switch (this.state.stage) {
       case BarCuttingStage.TopLeft:
-        this.state.topLeftCorner = { x, y }
-        this.state.stage = BarCuttingStage.TopRight
+        this.setState({
+          topLeftCorner: { x, y },
+          stage: BarCuttingStage.TopRight,
+        })
         break
 
       case BarCuttingStage.TopRight:
-        this.state.topRightCorner = { x, y }
-        this.state.stage = BarCuttingStage.Height
+        this.setState({
+          topRightCorner: { x, y },
+          stage: BarCuttingStage.Height,
+        })
         break
 
       case BarCuttingStage.Height:
-        this.state.staffHeightPoint = { x, y }
-        this.state.stage = BarCuttingStage.Cutting
+        this.setState({
+          staffHeightPoint: { x, y },
+          stage: BarCuttingStage.Cutting,
+        })
         break
 
       case BarCuttingStage.Cutting:
-        this.state.barBreakPoints.push({ x, y })
+        this.setState({
+          barBreakPoints: [...this.state.barBreakPoints, { x, y }],
+        })
         break
     }
 
@@ -132,29 +142,40 @@ class App extends React.Component<Props, State> {
     console.log("mouse move")
     switch (this.state.stage) {
       case BarCuttingStage.TopRight:
-        this.state.topRightCorner = { x, y }
+        this.setState({
+          topRightCorner: { x, y },
+        })
         break
 
       case BarCuttingStage.Height:
-        this.state.staffHeightPoint = { x, y }
+        this.setState({
+          staffHeightPoint: { x, y },
+        })
         break
     }
     this.redraw(ctx)
   }
 
   onLoad = (page: PDFPageProxy) => {
-    this.state.page = page
+    this.setState({
+      page: page,
+    })
     if (this.state.stage === BarCuttingStage.Empty)
-      this.state.stage = BarCuttingStage.Loaded
+      this.setState({
+        stage: BarCuttingStage.Loaded,
+      })
 
     // DEBUG init
-    this.state.stage = BarCuttingStage.Height
-    this.state.topLeftCorner = { x: 340, y: 128 }
-    this.state.topRightCorner = { x: 1016, y: 116 }
-
+    this.setState({
+      stage: BarCuttingStage.Height,
+      topLeftCorner: { x: 340, y: 128 },
+      topRightCorner: { x: 1016, y: 116 },
+    })
     const canvas = document.getElementsByTagName("canvas")[0]
     const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-    this.state.pageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    this.setState({
+      pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+    })
 
     if (!canvas.onmousemove) {
       canvas.addEventListener(
