@@ -141,6 +141,12 @@ class App extends React.Component<Props, State> {
     //
     console.log("mouse move")
     switch (this.state.stage) {
+      case BarCuttingStage.TopLeft:
+        this.setState({
+          topLeftCorner: { x, y },
+        })
+        break
+
       case BarCuttingStage.TopRight:
         this.setState({
           topRightCorner: { x, y },
@@ -166,11 +172,17 @@ class App extends React.Component<Props, State> {
       })
 
     // DEBUG init
-    this.setState({
-      stage: BarCuttingStage.Height,
-      topLeftCorner: { x: 340, y: 128 },
-      topRightCorner: { x: 1016, y: 116 },
-    })
+    if (!true) {
+      this.setState({
+        stage: BarCuttingStage.Height,
+        topLeftCorner: { x: 340, y: 128 },
+        topRightCorner: { x: 1016, y: 116 },
+      })
+    } else {
+      this.setState({
+        stage: BarCuttingStage.TopLeft,
+      })
+    }
     const canvas = document.getElementsByTagName("canvas")[0]
     const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
     this.setState({
@@ -213,11 +225,17 @@ class App extends React.Component<Props, State> {
     // refresh PDF background
     ctx.putImageData(this.state.pageData, 0, 0)
 
+    ctx.lineWidth = 2
+    ctx.strokeStyle = "rgba(38, 18, 225, 0.5)"
+    ctx.fillStyle = "rgba(42, 107, 169, 0.9)"
+
     // draw the points
     if (!this.state.topLeftCorner) return
     this.drawPoint(ctx, this.state.topLeftCorner)
     if (!this.state.topRightCorner) return
     this.drawPoint(ctx, this.state.topRightCorner)
+
+    ctx.lineWidth = 5
     this.drawLine(
       ctx,
       this.state.topLeftCorner.x,
@@ -225,6 +243,7 @@ class App extends React.Component<Props, State> {
       this.state.topRightCorner.x,
       this.state.topRightCorner.y
     )
+    ctx.lineWidth = 2
     if (!this.state.staffHeightPoint) return
     this.drawPoint(ctx, this.state.staffHeightPoint)
 
@@ -254,10 +273,38 @@ class App extends React.Component<Props, State> {
       this.state.staffHeightPoint
     )
     //console.log(proportion)
+
+    // a point on the first line
     this.drawPoint(ctx, {
       x: this.state.staffHeightPoint.x - vecV.dx * height,
       y: this.state.staffHeightPoint.y - vecV.dy * height,
     })
+
+    ctx.lineWidth = 4
+    this.drawLine(
+      ctx,
+      this.state.topLeftCorner.x + vecV.dx * height,
+      this.state.topLeftCorner.y + vecV.dy * height,
+      this.state.topRightCorner.x + vecV.dx * height,
+      this.state.topRightCorner.y + vecV.dy * height
+    )
+
+    // sides
+
+    this.drawLine(
+      ctx,
+      this.state.topLeftCorner.x + vecV.dx * height,
+      this.state.topLeftCorner.y + vecV.dy * height,
+      this.state.topLeftCorner.x,
+      this.state.topLeftCorner.y
+    )
+    this.drawLine(
+      ctx,
+      this.state.topRightCorner.x,
+      this.state.topRightCorner.y,
+      this.state.topRightCorner.x + vecV.dx * height,
+      this.state.topRightCorner.y + vecV.dy * height
+    )
   }
 
   render() {
