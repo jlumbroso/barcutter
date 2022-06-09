@@ -15,13 +15,49 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 
 const originPoint: Point2D = { x: 0, y: 0 } as Point2D
 
-enum BarCuttingStage {
+/**
+ * Describes the various stages of a single bar cutting operation (the
+ * finite state machine that allows us to compute a single bar cutting
+ * operation).
+ */
+enum ActiveBarCuttingStage {
+  /** Stage 0: The canvas is empty and no active bar cutting operation
+   * can take place.
+   */
   Empty = 0,
+
+  /** Stage 1: The canvas is loaded, but no active bar cutting operation
+   * is taking place, and one can begin at any time.
+   */
   Loaded = 1,
+
+  /** Stage 2: An active bar cutting operation is underway, and the top
+   * left corner of the system to be extracted is being determined.
+   */
   TopLeft = 2,
+
+  /** Stage 3: An active bar cutting operation is underway, and the top
+   * right corner of the system to be extracted is being determined.
+   */
   TopRight = 4,
+
+  /** Stage 4: An active bar cutting operation is underway, and the height
+   * of the system to be extracted is being determined.
+   */
   Height = 8,
+
+  /** Stage 5: An active bar cutting operation is underway; the bounding
+   * box of the system to be extracted has been entirely determined by
+   * previous steps. Individual bar cutting points are being selected,
+   * until the entire system has been divided.
+   */
   Cutting = 16,
+
+  /** Stage 6: An active bar cutting operation is just ending: Both the
+   * system's overall bounding box and individual bars have been determined.
+   * The metadata for the system can now be saved and new active cutting
+   * operation can take place.
+   */
   Saving = 32,
 }
 
@@ -60,14 +96,34 @@ interface Props {
 }
 
 interface State {
-  page: PDFPageProxy | undefined
+  /** The image data of the PDF page currently being displayed. */
   pageData: any
-  stage: BarCuttingStage
+
+  /*******************************************************
+   * STATE VARIABLES OF THE ACTIVE BAR CUTTING OPERATION *
+   *******************************************************/
+
+  /** The stage at which the active bar cutting operation is at. */
+  activeCutStage: ActiveBarCuttingStage
+
+  /** Top left corner of the bounding box of the system to extract. */
   topLeftCorner: Point2D | undefined
+
+  /** Top right corner of the bounding box of the system to extract. */
   topRightCorner: Point2D | undefined
+
+  /** Point used to indicate the height of the system to extract. */
   staffHeightPoint: Point2D | undefined
+
+  /** Current cutting point being selected by the user. */
   cuttingPoint: Point2D | undefined
+
+  /** List of cutting points for the active bar cutting operation. */
   barBreakPoints: Point2D[]
+
+  /*******************************************************
+   * STATE VARIABLES OF THE ACTIVE BAR CUTTING OPERATION *
+   *******************************************************/
 }
 
 class App extends React.Component<Props, State> {
@@ -77,9 +133,8 @@ class App extends React.Component<Props, State> {
   }
 
   state: State = {
-    stage: BarCuttingStage.Empty,
+    activeCutStage: ActiveBarCuttingStage.Empty,
     pageData: undefined,
-    page: undefined,
     topLeftCorner: undefined,
     topRightCorner: undefined,
     staffHeightPoint: undefined,
@@ -89,28 +144,25 @@ class App extends React.Component<Props, State> {
 
   constructor(props: Props) {
     super(props)
-    this.state.stage = BarCuttingStage.Empty
+    this.state.activeCutStage = ActiveBarCuttingStage.Empty
   }
 
   onLoad = (page: PDFPageProxy) => {
-    this.setState({
-      page: page,
-    })
-    if (this.state.stage === BarCuttingStage.Empty)
+    if (this.state.activeCutStage === ActiveBarCuttingStage.Empty)
       this.setState({
-        stage: BarCuttingStage.Loaded,
+        activeCutStage: ActiveBarCuttingStage.Loaded,
       })
 
     // DEBUG init
     if (!true) {
       this.setState({
-        stage: BarCuttingStage.Height,
+        activeCutStage: ActiveBarCuttingStage.Height,
         topLeftCorner: { x: 340, y: 128 },
         topRightCorner: { x: 1016, y: 116 },
       })
     } else {
       this.setState({
-        stage: BarCuttingStage.TopLeft,
+        activeCutStage: ActiveBarCuttingStage.TopLeft,
       })
     }
     const canvas = document.getElementsByTagName("canvas")[0]
@@ -139,32 +191,32 @@ class App extends React.Component<Props, State> {
     console.log(
       `x: ${x}, y: ${y}, page: ${
         page.pageNumber
-      }, stage: ${this.state.stage.toString()}`
+      }, stage: ${this.state.activeCutStage.toString()}`
     )
 
-    switch (this.state.stage) {
-      case BarCuttingStage.TopLeft:
+    switch (this.state.activeCutStage) {
+      case ActiveBarCuttingStage.TopLeft:
         this.setState({
           topLeftCorner: { x, y },
-          stage: BarCuttingStage.TopRight,
+          activeCutStage: ActiveBarCuttingStage.TopRight,
         })
         break
 
-      case BarCuttingStage.TopRight:
+      case ActiveBarCuttingStage.TopRight:
         this.setState({
           topRightCorner: { x, y },
-          stage: BarCuttingStage.Height,
+          activeCutStage: ActiveBarCuttingStage.Height,
         })
         break
 
-      case BarCuttingStage.Height:
+      case ActiveBarCuttingStage.Height:
         this.setState({
           staffHeightPoint: { x, y },
-          stage: BarCuttingStage.Cutting,
+          activeCutStage: ActiveBarCuttingStage.Cutting,
         })
         break
 
-      case BarCuttingStage.Cutting:
+      case ActiveBarCuttingStage.Cutting:
         // check if the cutting point is beyond the bounding box of the region
         const pointProjectedTop = Geometry.projectPointOnLine(
           this.state.topLeftCorner as Point2D,
@@ -187,11 +239,11 @@ class App extends React.Component<Props, State> {
           proportionOfBox > this.props.lastCutThreshold
         ) {
           this.setState({
-            stage: BarCuttingStage.Saving,
+            activeCutStage: ActiveBarCuttingStage.Saving,
           })
         }
         if (
-          this.state.stage === BarCuttingStage.Cutting ||
+          this.state.activeCutStage === ActiveBarCuttingStage.Cutting ||
           this.props.saveLastCut
         ) {
           this.setState({
@@ -201,6 +253,13 @@ class App extends React.Component<Props, State> {
         break
     }
 
+    //
+    if (this.state.activeCutStage === ActiveBarCuttingStage.Saving) {
+      this.setState({
+        activeCutStage: ActiveBarCuttingStage.Empty,
+      })
+    }
+
     this.redraw(ctx)
   }
 
@@ -208,26 +267,26 @@ class App extends React.Component<Props, State> {
     const { canvas, ctx, rect, x, y } = prepCanvasEvent(event as any)
     //
     //console.log("mouse move")
-    switch (this.state.stage) {
-      case BarCuttingStage.TopLeft:
+    switch (this.state.activeCutStage) {
+      case ActiveBarCuttingStage.TopLeft:
         this.setState({
           topLeftCorner: { x, y },
         })
         break
 
-      case BarCuttingStage.TopRight:
+      case ActiveBarCuttingStage.TopRight:
         this.setState({
           topRightCorner: { x, y },
         })
         break
 
-      case BarCuttingStage.Height:
+      case ActiveBarCuttingStage.Height:
         this.setState({
           staffHeightPoint: { x, y },
         })
         break
 
-      case BarCuttingStage.Cutting:
+      case ActiveBarCuttingStage.Cutting:
         this.setState({
           cuttingPoint: { x, y },
         })
@@ -243,45 +302,40 @@ class App extends React.Component<Props, State> {
     ctx.stroke()
   }
 
-  drawLine = (
-    ctx: CanvasRenderingContext2D,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number
-  ) => {
+  drawLine = (ctx: CanvasRenderingContext2D, p1: Point2D, p2: Point2D) => {
     ctx.beginPath()
-    // @ts-ignore
-    ctx.arc(x1, y1, 1, 0, 2 * Math.PI, true)
-    ctx.arc(x2, y2, 1, 0, 2 * Math.PI, true)
+    ctx.arc(p1.x, p1.y, 1, 0, 2 * Math.PI, true)
+    ctx.arc(p2.x, p2.y, 1, 0, 2 * Math.PI, true)
     ctx.stroke()
   }
 
   redraw = (ctx: CanvasRenderingContext2D) => {
-    // refresh PDF background
+    // erase canvas with fresh copy of the PDF page image
     ctx.putImageData(this.state.pageData, 0, 0)
 
-    ctx.lineWidth = 2
-    ctx.strokeStyle = "rgba(38, 18, 225, 0.5)"
-    ctx.fillStyle = "rgba(42, 107, 169, 0.9)"
+    // picking the style for the line selection
+    const applyStyleDefault = () => {
+      ctx.lineWidth = 2
+      ctx.strokeStyle = "rgba(38, 18, 225, 0.5)"
+      ctx.fillStyle = "rgba(42, 107, 169, 0.9)"
+    }
+    applyStyleDefault()
 
-    // draw the points
+    // draw the points if they exist (and if not, this means
+    // that the selection process has not processes sufficiently
+    // far yet)
     if (!this.state.topLeftCorner) return
     this.drawPoint(ctx, this.state.topLeftCorner)
+
     if (!this.state.topRightCorner) return
     this.drawPoint(ctx, this.state.topRightCorner)
 
     ctx.lineWidth = 5
-    this.drawLine(
-      ctx,
-      this.state.topLeftCorner.x,
-      this.state.topLeftCorner.y,
-      this.state.topRightCorner.x,
-      this.state.topRightCorner.y
-    )
+    this.drawLine(ctx, this.state.topLeftCorner, this.state.topRightCorner)
     ctx.lineWidth = 2
+
     if (!this.state.staffHeightPoint) return
-    this.drawPoint(ctx, this.state.staffHeightPoint)
+    //this.drawPoint(ctx, this.state.staffHeightPoint)
 
     //
     const distance = Geometry.measureDistance(
@@ -299,15 +353,16 @@ class App extends React.Component<Props, State> {
       this.state.topRightCorner,
       this.state.staffHeightPoint
     )
+    console.log(height)
 
     const vecU = { dx, dy }
     const vecV = { dx: dy, dy: -dx }
 
     // a point on the first line
-    this.drawPoint(ctx, {
-      x: this.state.staffHeightPoint.x - vecV.dx * height,
-      y: this.state.staffHeightPoint.y - vecV.dy * height,
-    })
+    // this.drawPoint(ctx, {
+    //   x: this.state.staffHeightPoint.x - vecV.dx * height,
+    //   y: this.state.staffHeightPoint.y - vecV.dy * height,
+    // })
 
     // compute points
     const bottomLeftCorner = {
@@ -347,29 +402,11 @@ class App extends React.Component<Props, State> {
     }
 
     ctx.lineWidth = 4
-    this.drawLine(
-      ctx,
-      bottomLeftCorner.x,
-      bottomLeftCorner.y,
-      bottomRightCorner.x,
-      bottomRightCorner.y
-    )
+    this.drawLine(ctx, bottomLeftCorner, bottomRightCorner)
 
     // sides
-    this.drawLine(
-      ctx,
-      bottomLeftCorner.x,
-      bottomLeftCorner.y,
-      this.state.topLeftCorner.x,
-      this.state.topLeftCorner.y
-    )
-    this.drawLine(
-      ctx,
-      this.state.topRightCorner.x,
-      this.state.topRightCorner.y,
-      bottomRightCorner.x,
-      bottomRightCorner.y
-    )
+    this.drawLine(ctx, bottomLeftCorner, this.state.topLeftCorner)
+    this.drawLine(ctx, this.state.topRightCorner, bottomRightCorner)
 
     // cut points
     var prevPoint = this.state.topLeftCorner
@@ -379,13 +416,7 @@ class App extends React.Component<Props, State> {
       var projected = projectToLines(point)
       if (!projected) continue
 
-      this.drawLine(
-        ctx,
-        projected.top.x,
-        projected.top.y,
-        projected.bottom.x,
-        projected.bottom.y
-      )
+      this.drawLine(ctx, projected.top, projected.bottom)
       ctx.textBaseline = "middle"
       ctx.font = "20pt monospace"
       ctx.strokeStyle = "#370a2cff"
@@ -405,13 +436,7 @@ class App extends React.Component<Props, State> {
 
     const lineCP = projectToLines(this.state.cuttingPoint)
     if (!lineCP) return
-    this.drawLine(
-      ctx,
-      lineCP.top.x,
-      lineCP.top.y,
-      lineCP.bottom.x,
-      lineCP.bottom.y
-    )
+    this.drawLine(ctx, lineCP.top, lineCP.bottom)
 
     return
   }

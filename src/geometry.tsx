@@ -32,8 +32,8 @@ export type radian = number
  * {@link p1}; if this ratio is close to 1.0, then it means
  * {@link pProject} is very close to {@link p2}.
  *
- * @param p1 The point with the lowest x coordinate.
- * @param p2 The point with the highest x coordinate.
+ * @param p1 The leftmost point (with smallest {x}-coordinate).
+ * @param p2 The right point (with largest {x}-coordinate).
  * @param pProject The point (on the line from {@link p1}
  * to {@link p2}) to compute the ratio for.
  * @param flip I don't remember what this does (FIXME!).
