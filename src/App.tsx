@@ -20,7 +20,8 @@ enum BarCuttingStage {
   TopLeft = 2,
   TopRight = 4,
   Height = 8,
-  Cutting = 1,
+  Cutting = 16,
+  Saving = 32,
 }
 
 const prepCanvasEvent = (event: React.MouseEvent<Element, MouseEvent>) => {
@@ -57,7 +58,10 @@ const drawLine = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
   ctx.stroke()
 }*/
 
-type Props = {}
+type Props = {
+  saveLastCut?: boolean
+  lastCutThreshold?: number
+}
 
 type State = {
   page: PDFPageProxy | undefined
@@ -71,6 +75,13 @@ type State = {
 }
 
 class App extends React.Component<Props, State> {
+  static defaultProps = {
+    lastCutThreshold: 0.98,
+    saveLastCut: true,
+  }
+
+  props: Props = {}
+
   state: State = {
     stage: BarCuttingStage.Empty,
     pageData: undefined,
@@ -80,6 +91,12 @@ class App extends React.Component<Props, State> {
     staffHeightPoint: undefined,
     cuttingPoint: undefined,
     barBreakPoints: [],
+  }
+
+  // @ts-ignore
+  constructor(props) {
+    super(props)
+    this.state.stage = BarCuttingStage.Empty
   }
 
   onCanvasClick = (
@@ -129,9 +146,39 @@ class App extends React.Component<Props, State> {
         break
 
       case BarCuttingStage.Cutting:
-        this.setState({
-          barBreakPoints: [...this.state.barBreakPoints, { x, y }],
-        })
+        // check if the cutting point is beyond the bounding box of the region
+        const pointProjectedTop = projectPointOnLine(
+          this.state.topLeftCorner as Point2D,
+          this.state.topRightCorner as Point2D,
+          { x, y },
+          false
+        )
+
+        // this number computes the proportion between the starting boundary of the box and the cutting point
+        // this helps us determine whether we have cut all points on the system/staff or not
+        const proportionOfBox = proportionPointOnLine(
+          this.state.topLeftCorner as Point2D,
+          this.state.topRightCorner as Point2D,
+          pointProjectedTop as Point2D
+        )
+
+        // CONST: THRESHOLD OF SELECTION OF LAST CUTTING POINT
+        if (
+          this.props.lastCutThreshold &&
+          proportionOfBox > this.props.lastCutThreshold
+        ) {
+          this.setState({
+            stage: BarCuttingStage.Saving,
+          })
+        }
+        if (
+          this.state.stage === BarCuttingStage.Cutting ||
+          this.props.saveLastCut
+        ) {
+          this.setState({
+            barBreakPoints: [...this.state.barBreakPoints, { x, y }],
+          })
+        }
         break
     }
 
@@ -141,7 +188,7 @@ class App extends React.Component<Props, State> {
   onCanvasMouseMove = (event: MouseEvent) => {
     const { canvas, ctx, rect, x, y } = prepCanvasEvent(event as any)
     //
-    console.log("mouse move")
+    //console.log("mouse move")
     switch (this.state.stage) {
       case BarCuttingStage.TopLeft:
         this.setState({
@@ -422,6 +469,28 @@ class App extends React.Component<Props, State> {
       </div>
     )
   }
+}
+
+const proportionPointOnLine = (
+  p1: Point2D,
+  p2: Point2D,
+  pProject: Point2D,
+  flip: boolean = false
+) => {
+  // assume all points are on line (otherwise unexpected results!)
+  // p1 and p2 are the end points of the line
+  // pProject is the point to project
+
+  // check?
+  const pProjectPrime = projectPointOnLine(p1, p2, pProject, flip)
+  console.log(
+    pProjectPrime &&
+      pProject.x === pProjectPrime.x &&
+      pProject.y === pProjectPrime.y
+  )
+
+  if (p1.x !== p2.x) return (pProject.x - p1.x) / (p2.x - p1.x)
+  else return (pProject.y - p1.y) / (p2.y - p1.y)
 }
 
 const projectPointOnLine = (
