@@ -43,24 +43,19 @@ const prepCanvasEvent = (event: React.MouseEvent<Element, MouseEvent>) => {
   }
 }
 
-/*const drawPoint = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-  ctx.beginPath()
-  ctx.arc(x, y, 1, 0, 2 * Math.PI, true)
-  ctx.stroke()
-}
-
-const drawLine = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-  if (!topLeftCorner) return
-  ctx.beginPath()
-  console.log(topLeftCorner)
-  // @ts-ignore
-  ctx.arc(topLeftCorner.x, topLeftCorner.y, 1, 0, 2 * Math.PI, true)
-  ctx.arc(x, y, 1, 0, 2 * Math.PI, true)
-  ctx.stroke()
-}*/
-
+/**
+ * Properties
+ */
 interface Props {
+  /** Flag to determine whether the last bar cut that is made is
+   * saved (or whether it is just used to exit the cutting mode).
+   */
   saveLastCut?: boolean
+
+  /** A threshold value between 0.0 and 1.0 to indicate at which
+   * point a cut is considered to be out-of-bounds for an additional
+   * bar.
+   */
   lastCutThreshold?: number
 }
 

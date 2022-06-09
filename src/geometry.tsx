@@ -1,8 +1,46 @@
-export type Point2D = { x: number; y: number }
+/**
+ * Data structure for a 2D point.
+ * @param x The x coordinate.
+ * @param y The y coordinate.
+ */
+export type Point2D = {
+  /** The x coordinate. */
+  x: number
+  /** The y coordinate. */
+  y: number
+}
 
+/**
+ * Data type for an angle stored in degrees.
+ */
 export type degree = number
+
+/**
+ * Data type for an angle stored in radians.
+ */
 export type radian = number
 
+/**
+ * Given three points on a line — {@link p1}, {@link p2} and
+ * {@link pProject} — returns the ratio of the distance between
+ * {@link p1} and {@link p2} to the distance of {@link p1} to
+ * {@link pProject}.
+ *
+ * @remarks
+ * In particular, if the ratio computed by this function is
+ * close to 0.0, then it means {@link pProject} is close to
+ * {@link p1}; if this ratio is close to 1.0, then it means
+ * {@link pProject} is very close to {@link p2}.
+ *
+ * @param p1 The point with the lowest x coordinate.
+ * @param p2 The point with the highest x coordinate.
+ * @param pProject The point (on the line from {@link p1}
+ * to {@link p2}) to compute the ratio for.
+ * @param flip I don't remember what this does (FIXME!).
+ *
+ * @returns The ratio of the distance between {@link p1}
+ * and {@link pProject}, and {@link p2} and {@link pProject}.
+ */
 const proportionPointOnLine = (
   p1: Point2D,
   p2: Point2D,
@@ -178,7 +216,7 @@ const measureAngleFromPoints2 = (
   return angleDeg
 }
 
-export default {
+const Geometry = {
   proportionPointOnLine,
   projectPointOnLine,
   measureLineDiff,
@@ -191,3 +229,5 @@ export default {
   measureAngleFromPoints,
   measureAngleFromPoints2,
 }
+
+export default Geometry
