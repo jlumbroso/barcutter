@@ -1,6 +1,7 @@
 import React from "react"
 import { Document, Page } from "react-pdf"
 import { PDFPageProxy } from "pdfjs-dist/types/src/display/api"
+import PropTypes from "prop-types"
 
 import "./App.css"
 
@@ -58,12 +59,12 @@ const drawLine = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
   ctx.stroke()
 }*/
 
-type Props = {
+interface Props {
   saveLastCut?: boolean
   lastCutThreshold?: number
 }
 
-type State = {
+interface State {
   page: PDFPageProxy | undefined
   pageData: any
   stage: BarCuttingStage
@@ -79,8 +80,6 @@ class App extends React.Component<Props, State> {
     lastCutThreshold: 0.98,
     saveLastCut: true,
   }
-
-  props: Props = {}
 
   state: State = {
     stage: BarCuttingStage.Empty,
