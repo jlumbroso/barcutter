@@ -92,10 +92,47 @@ class App extends React.Component<Props, State> {
     barBreakPoints: [],
   }
 
-  // @ts-ignore
-  constructor(props) {
+  constructor(props: Props) {
     super(props)
     this.state.stage = BarCuttingStage.Empty
+  }
+
+  onLoad = (page: PDFPageProxy) => {
+    this.setState({
+      page: page,
+    })
+    if (this.state.stage === BarCuttingStage.Empty)
+      this.setState({
+        stage: BarCuttingStage.Loaded,
+      })
+
+    // DEBUG init
+    if (!true) {
+      this.setState({
+        stage: BarCuttingStage.Height,
+        topLeftCorner: { x: 340, y: 128 },
+        topRightCorner: { x: 1016, y: 116 },
+      })
+    } else {
+      this.setState({
+        stage: BarCuttingStage.TopLeft,
+      })
+    }
+    const canvas = document.getElementsByTagName("canvas")[0]
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
+    this.setState({
+      pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+    })
+
+    if (!canvas.onmousemove) {
+      canvas.addEventListener(
+        "mousemove",
+        (e) => this.onCanvasMouseMove(e),
+        false
+      )
+    }
+
+    this.redraw(ctx)
   }
 
   onCanvasClick = (
@@ -105,22 +142,10 @@ class App extends React.Component<Props, State> {
     const { canvas, ctx, rect, x, y } = prepCanvasEvent(event)
 
     console.log(
-      `x: ${x}, y: ${y}, page: ${page.pageNumber}, stage: ${this.state.stage}`
+      `x: ${x}, y: ${y}, page: ${
+        page.pageNumber
+      }, stage: ${this.state.stage.toString()}`
     )
-
-    if (!this.state.pageData) {
-      this.setState({
-        pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-      })
-    }
-
-    if (!canvas.onmousemove) {
-      canvas.addEventListener(
-        "mousemove",
-        (e) => this.onCanvasMouseMove(e),
-        false
-      )
-    }
 
     switch (this.state.stage) {
       case BarCuttingStage.TopLeft:
@@ -213,44 +238,6 @@ class App extends React.Component<Props, State> {
         })
         break
     }
-    this.redraw(ctx)
-  }
-
-  onLoad = (page: PDFPageProxy) => {
-    this.setState({
-      page: page,
-    })
-    if (this.state.stage === BarCuttingStage.Empty)
-      this.setState({
-        stage: BarCuttingStage.Loaded,
-      })
-
-    // DEBUG init
-    if (!true) {
-      this.setState({
-        stage: BarCuttingStage.Height,
-        topLeftCorner: { x: 340, y: 128 },
-        topRightCorner: { x: 1016, y: 116 },
-      })
-    } else {
-      this.setState({
-        stage: BarCuttingStage.TopLeft,
-      })
-    }
-    const canvas = document.getElementsByTagName("canvas")[0]
-    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-    this.setState({
-      pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-    })
-
-    if (!canvas.onmousemove) {
-      canvas.addEventListener(
-        "mousemove",
-        (e) => this.onCanvasMouseMove(e),
-        false
-      )
-    }
-
     this.redraw(ctx)
   }
 
@@ -432,25 +419,6 @@ class App extends React.Component<Props, State> {
     )
 
     return
-    // const height2 = measureHeightFromPoints(
-    //   this.state.topLeftCorner,
-    //   this.state.topRightCorner,
-    //   this.state.cuttingPoint
-    // )
-    // const height3 = measureHeightFromPoints(
-    //   bottomLeftCorner,
-    //   bottomRightCorner,
-    //   this.state.cuttingPoint
-    // )
-    // this.drawLine(
-    //   ctx,
-    //   this.state.cuttingPoint.x - vecV.dx * height2,
-    //   this.state.cuttingPoint.y - vecV.dy * height2,
-    //   this.state.cuttingPoint.x + vecV.dx * height3,
-    //   this.state.cuttingPoint.y + vecV.dy * height3
-    // )
-
-    // return
   }
 
   render() {
@@ -649,163 +617,3 @@ const measureAngleFromPoints2 = (
 }
 
 export default App
-
-/*
-function App2() {
-  const [operationState, setOperationState] = React.useState(
-    BarCuttingSequence.Empty
-  )
-  const [topLeftCorner, setTopLeftCorner] = React.useState<Point2D>()
-  const [topRightCorner, setTopRightCorner] = React.useState<Point2D>()
-  const [staffHeightPoint, setStaffHeightPoint] = React.useState<Point2D>()
-  const [barBreakPoints, setBarBreakPoints] = React.useState<Point2D[]>([])
-
-  const measureDistance = (p1: Point2D, p2: Point2D) => {
-    const dx = p2.x - p1.x
-    const dy = p2.y - p1.y
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  const drawPoint = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    ctx.beginPath()
-    ctx.arc(x, y, 1, 0, 2 * Math.PI, true)
-    ctx.stroke()
-  }
-
-  const drawLine = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    if (!topLeftCorner) return
-    ctx.beginPath()
-    console.log(topLeftCorner)
-    // @ts-ignore
-    ctx.arc(topLeftCorner.x, topLeftCorner.y, 1, 0, 2 * Math.PI, true)
-    ctx.arc(x, y, 1, 0, 2 * Math.PI, true)
-    ctx.stroke()
-  }
-
-  const onCanvasClick = (
-    event: React.MouseEvent<Element, MouseEvent>,
-    page: PDFPageProxy
-  ) => {
-    // pageX: The horizontal coordinate relative to the viewport.
-    // clientX: The horizontal coordinate relative to the viewport, including any scroll offset.
-    // screenX: The horizontal coordinate relative to the screen.
-
-    // Get Canvas and Context element
-
-    var canvas = event.target as HTMLCanvasElement
-    var ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-
-    // Register mouse move event
-
-    if (!canvas.onmousemove) {
-      canvas.addEventListener(
-        "mousemove",
-        (e) => onCanvasMouseMove(e, page),
-        false
-      )
-    }
-
-    // Compute coordinates on the Canvas
-    //
-    // x ==
-    //      the location of the click in the document
-    //    - the location (relative to the left) of the canvas in the document
-    //
-
-    var rect = canvas.getBoundingClientRect()
-    var x = event.clientX - rect.left
-    var y = event.clientY - rect.top
-
-    console.log(`PDF clicked: (x: ${x}, y: ${y})`)
-
-    // Determine where we are in the state machine
-
-    switch (operationState) {
-      case BarCuttingSequence.TopLeft:
-        // Set the top left corner
-        setTopLeftCorner({ x, y })
-        setOperationState(BarCuttingSequence.TopRight)
-        break
-
-      case BarCuttingSequence.TopRight:
-        // Set the top right corner
-        setTopRightCorner({ x, y })
-        setOperationState(BarCuttingSequence.Height)
-        break
-
-      case BarCuttingSequence.Height:
-        // Set the height
-        setStaffHeightPoint({ x, y })
-        setOperationState(BarCuttingSequence.Cutting)
-        break
-
-      case BarCuttingSequence.Cutting:
-        break
-    }
-
-    return
-    //var canvasWidth = canvas.width
-    //var canvasHeight = canvas.height
-    switch (operationState) {
-      case BarCuttingSequence.Empty:
-        console.log(topLeftCorner)
-        setTopLeftCorner({ x, y })
-        console.log(topLeftCorner)
-        setOperationState(BarCuttingSequence.TopLeft)
-
-        // @ts-ignore
-        canvas.onmousemove = (event: React.MouseEvent<Element, MouseEvent>) => {
-          console.log(topLeftCorner)
-          console.log(event)
-          console.log(rect)
-          console.log(event.clientX - rect.left)
-          drawLine(ctx, event.clientX - rect.left, event.clientY - rect.top)
-        }
-        break
-      case BarCuttingSequence.TopLeft:
-        drawLine(ctx, x, y)
-        setTopRightCorner({ x, y })
-        setOperationState(BarCuttingSequence.TopRight)
-        break
-      case BarCuttingSequence.TopRight:
-    }
-  }
-
-  const onCanvasMouseMove = (event: MouseEvent, page: PDFPageProxy) => {
-    var canvas = event.target as HTMLCanvasElement
-    var ctx = canvas.getContext("2d") as CanvasRenderingContext2D
-    var rect = canvas.getBoundingClientRect()
-    var x = event.clientX - rect.left
-    var y = event.clientY - rect.top
-    console.log(
-      `Mouse move: ${topLeftCorner}, ${topRightCorner}, ${staffHeightPoint}`
-    )
-    return
-    switch (operationState) {
-      case BarCuttingSequence.TopLeft:
-        break
-
-      case BarCuttingSequence.TopRight:
-        break
-
-      case BarCuttingSequence.Height:
-        // Set the height
-        break
-
-      case BarCuttingSequence.Cutting:
-        break
-    }
-  }
-
-  return (
-    <div className="App">
-      <header className="App-header">
-        <Document file={samplePDF} onLoadError={console.error}>
-          <Page pageNumber={1} onClick={onCanvasClick} />
-        </Document>
-      </header>
-    </div>
-  )
-}
-
-export default App*/
