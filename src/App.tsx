@@ -21,39 +21,39 @@ const originPoint: Point2D = { x: 0, y: 0 } as Point2D
  * operation).
  */
 enum ActiveBarCuttingStage {
-  /** Stage 0: The canvas is empty and no active bar cutting operation
+  /** **Stage 0:** The canvas is empty and no active bar cutting operation
    * can take place.
    */
   Empty = 0,
 
-  /** Stage 1: The canvas is loaded, but no active bar cutting operation
+  /** **Stage 1:** The canvas is loaded, but no active bar cutting operation
    * is taking place, and one can begin at any time.
    */
   Loaded = 1,
 
-  /** Stage 2: An active bar cutting operation is underway, and the top
+  /** **Stage 2:** An active bar cutting operation is underway, and the top
    * left corner of the system to be extracted is being determined.
    */
   TopLeft = 2,
 
-  /** Stage 3: An active bar cutting operation is underway, and the top
+  /** **Stage 3:** An active bar cutting operation is underway, and the top
    * right corner of the system to be extracted is being determined.
    */
   TopRight = 4,
 
-  /** Stage 4: An active bar cutting operation is underway, and the height
+  /** **Stage 4:** An active bar cutting operation is underway, and the height
    * of the system to be extracted is being determined.
    */
   Height = 8,
 
-  /** Stage 5: An active bar cutting operation is underway; the bounding
+  /** **Stage 5:** An active bar cutting operation is underway; the bounding
    * box of the system to be extracted has been entirely determined by
-   * previous steps. Individual bar cutting points are being selected,
+   * previous steps. Individual bar bar break points are being selected,
    * until the entire system has been divided.
    */
   Cutting = 16,
 
-  /** Stage 6: An active bar cutting operation is just ending: Both the
+  /** **Stage 6:** An active bar cutting operation is just ending: Both the
    * system's overall bounding box and individual bars have been determined.
    * The metadata for the system can now be saved and new active cutting
    * operation can take place.
@@ -115,10 +115,10 @@ interface State {
   /** Point used to indicate the height of the system to extract. */
   staffHeightPoint: Point2D | undefined
 
-  /** Current cutting point being selected by the user. */
-  cuttingPoint: Point2D | undefined
+  /** Current bar break point being selected by the user. */
+  nextBarBreakPoint: Point2D | undefined
 
-  /** List of cutting points for the active bar cutting operation. */
+  /** List of bar break points for the active bar cutting operation. */
   barBreakPoints: Point2D[]
 
   /*******************************************************
@@ -138,7 +138,7 @@ class App extends React.Component<Props, State> {
     topLeftCorner: undefined,
     topRightCorner: undefined,
     staffHeightPoint: undefined,
-    cuttingPoint: undefined,
+    nextBarBreakPoint: undefined,
     barBreakPoints: [],
   }
 
@@ -147,6 +147,10 @@ class App extends React.Component<Props, State> {
     this.state.activeCutStage = ActiveBarCuttingStage.Empty
   }
 
+  /**
+   * Callback triggered when the PDF document is loaded.
+   * @param page The PDF page that was just loaded.
+   */
   onLoad = (page: PDFPageProxy) => {
     if (this.state.activeCutStage === ActiveBarCuttingStage.Empty)
       this.setState({
@@ -165,12 +169,17 @@ class App extends React.Component<Props, State> {
         activeCutStage: ActiveBarCuttingStage.TopLeft,
       })
     }
+
+    // Store PDF page data so it can be used to redraw the canvas
     const canvas = document.getElementsByTagName("canvas")[0]
     const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
     this.setState({
       pageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
     })
 
+    // react-pdf does not allow directly to attach an onMouseMove
+    // event listener, but it can be attached through the canvas
+    // element.
     if (!canvas.onmousemove) {
       canvas.addEventListener(
         "mousemove",
@@ -179,9 +188,22 @@ class App extends React.Component<Props, State> {
       )
     }
 
+    // draw the canvas for the first time
     this.redraw(ctx)
   }
 
+  /**
+   * Callback triggered when the user clicks the canvas.
+   *
+   * In this callback, we determine the stage of the active bar
+   * cutting, and use the user input to determine the next stage.
+   *
+   * @remarks This method is not involved in any display operations,
+   * all of which are computed in the {@link redraw} method.
+   *
+   * @param event The mouse event that triggered the callback.
+   * @param page The PDF page that is being currently displayed.
+   */
   onCanvasClick = (
     event: React.MouseEvent<Element, MouseEvent>,
     page: PDFPageProxy
@@ -194,13 +216,25 @@ class App extends React.Component<Props, State> {
       }, stage: ${this.state.activeCutStage.toString()}`
     )
 
+    // *****************************************************************
+    // FINITE STATE AUTOMATON TO COMPUTE WHAT IS THE NEXT STAGE OF THE
+    // ACTIVE BAR CUTTING OPERATION
+
     switch (this.state.activeCutStage) {
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      // STAGE 1: We are selecting the top left corner of the system to
+      // extract, so storing the click location (x, y) as the top left
+      // corner.
+
       case ActiveBarCuttingStage.TopLeft:
         this.setState({
           topLeftCorner: { x, y },
           activeCutStage: ActiveBarCuttingStage.TopRight,
         })
         break
+
+      // STAGE 2: Same as Stage 1, but for the top right corner.
 
       case ActiveBarCuttingStage.TopRight:
         this.setState({
@@ -209,6 +243,9 @@ class App extends React.Component<Props, State> {
         })
         break
 
+      // STAGE 3: Now measuring the height of the system, by setting
+      // the "staffHeightPoint" based on the click location.
+
       case ActiveBarCuttingStage.Height:
         this.setState({
           staffHeightPoint: { x, y },
@@ -216,8 +253,14 @@ class App extends React.Component<Props, State> {
         })
         break
 
+      // STAGE 4: Each click will determine a bar cut; we need also need
+      // to detect when we are done with this process to move onto the
+      // next stage (as unlike previous steps, there can be an arbitrary
+      // number of bar cuts).
+
       case ActiveBarCuttingStage.Cutting:
-        // check if the cutting point is beyond the bounding box of the region
+        // check if the bar break point is beyond the bounding box of the region
+
         const pointProjectedTop = Geometry.projectPointOnLine(
           this.state.topLeftCorner as Point2D,
           this.state.topRightCorner as Point2D,
@@ -225,15 +268,17 @@ class App extends React.Component<Props, State> {
           false
         )
 
-        // this number computes the proportion between the starting boundary of the box and the cutting point
-        // this helps us determine whether we have cut all points on the system/staff or not
+        // this number computes the proportion between the starting boundary
+        // of the box and the bar break point; this helps us determine whether
+        // we have cut all points on the system/staff or not
+
         const proportionOfBox = Geometry.proportionPointOnLine(
           this.state.topLeftCorner as Point2D,
           this.state.topRightCorner as Point2D,
           pointProjectedTop as Point2D
         )
 
-        // CONST: THRESHOLD OF SELECTION OF LAST CUTTING POINT
+        // CONST: THRESHOLD OF SELECTION OF LAST bar break point
         if (
           this.props.lastCutThreshold &&
           proportionOfBox > this.props.lastCutThreshold
@@ -251,7 +296,10 @@ class App extends React.Component<Props, State> {
           })
         }
         break
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
+    // *****************************************************************
 
     //
     if (this.state.activeCutStage === ActiveBarCuttingStage.Saving) {
@@ -263,16 +311,37 @@ class App extends React.Component<Props, State> {
     this.redraw(ctx)
   }
 
+  /**
+   * Callback triggered when the user moves the mouse.
+   *
+   * In this callback, we do not change the stage of active bar
+   * cutting operation, we only update the coordinates of the
+   * point currently under consideration (top left corner, top
+   * right corner, staff heigh point, bar break points), such that
+   * the {@link redraw} method knows where to draw each object.
+   *
+   * @param event The mouse event that triggered the callback.
+   */
   onCanvasMouseMove = (event: MouseEvent) => {
     const { canvas, ctx, rect, x, y } = prepCanvasEvent(event as any)
-    //
-    //console.log("mouse move")
+
+    // *****************************************************************
+    // UPDATE POINTS OF ACTIVE BAR CUTTING OPERATION WITH MOUSE MOVEMENT
+
     switch (this.state.activeCutStage) {
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      // STAGE 1: Update the top left corner, of the system to extract,
+      // to be whatever the mouse coordinates (x, y) are.
+
       case ActiveBarCuttingStage.TopLeft:
         this.setState({
           topLeftCorner: { x, y },
         })
         break
+
+      // STAGE 2: Update the top right corner, of the system to extract,
+      // to be whatever the mouse coordinates (x, y) are.
 
       case ActiveBarCuttingStage.TopRight:
         this.setState({
@@ -280,18 +349,28 @@ class App extends React.Component<Props, State> {
         })
         break
 
+      // STAGE 3: Update the staff height measurement point to the mouse
+      // coordinates (x, y).
+
       case ActiveBarCuttingStage.Height:
         this.setState({
           staffHeightPoint: { x, y },
         })
         break
 
+      // STAGE 4: Update the position of the current bar break point.
+
       case ActiveBarCuttingStage.Cutting:
         this.setState({
-          cuttingPoint: { x, y },
+          nextBarBreakPoint: { x, y },
         })
         break
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
+    // *****************************************************************
+
+    // Redraw the canvas with the new updated points.
     this.redraw(ctx)
   }
 
@@ -309,6 +388,13 @@ class App extends React.Component<Props, State> {
     ctx.stroke()
   }
 
+  /**
+   * Redraws the canvas of the bar cutting component: This involves
+   * visualizing the parameters of the state (top left and right corners,
+   * bounding box of the system, individual bar bar break points, etc.)
+   * both when they have been validated (by mouse click) but also as the
+   * user makes selections.
+   */
   redraw = (ctx: CanvasRenderingContext2D) => {
     // erase canvas with fresh copy of the PDF page image
     ctx.putImageData(this.state.pageData, 0, 0)
@@ -331,10 +417,15 @@ class App extends React.Component<Props, State> {
     this.drawPoint(ctx, this.state.topRightCorner)
 
     ctx.lineWidth = 5
+
+    // BBOX: top segment of the bounding box
     this.drawLine(ctx, this.state.topLeftCorner, this.state.topRightCorner)
+
     ctx.lineWidth = 2
 
     if (!this.state.staffHeightPoint) return
+
+    // STAGE
     //this.drawPoint(ctx, this.state.staffHeightPoint)
 
     //
@@ -353,7 +444,6 @@ class App extends React.Component<Props, State> {
       this.state.topRightCorner,
       this.state.staffHeightPoint
     )
-    console.log(height)
 
     const vecU = { dx, dy }
     const vecV = { dx: dy, dy: -dx }
@@ -402,11 +492,17 @@ class App extends React.Component<Props, State> {
     }
 
     ctx.lineWidth = 4
+
+    // BBOX: bottom segment of the bounding box
     this.drawLine(ctx, bottomLeftCorner, bottomRightCorner)
 
-    // sides
+    // BBOX: side segments of the bounding box
     this.drawLine(ctx, bottomLeftCorner, this.state.topLeftCorner)
     this.drawLine(ctx, this.state.topRightCorner, bottomRightCorner)
+
+    // ************************************
+    // at the point the BBOX is drawn fully
+    // ************************************
 
     // cut points
     var prevPoint = this.state.topLeftCorner
@@ -429,12 +525,12 @@ class App extends React.Component<Props, State> {
       prevPoint = point
       id += 1
     }
-    // cutting points
-    if (!this.state.cuttingPoint) return
+    // bar break points
+    if (!this.state.nextBarBreakPoint) return
 
-    this.drawPoint(ctx, this.state.cuttingPoint)
+    this.drawPoint(ctx, this.state.nextBarBreakPoint)
 
-    const lineCP = projectToLines(this.state.cuttingPoint)
+    const lineCP = projectToLines(this.state.nextBarBreakPoint)
     if (!lineCP) return
     this.drawLine(ctx, lineCP.top, lineCP.bottom)
 
