@@ -13,8 +13,6 @@ import samplePDF from "./k522-venice.pdf"
 import { pdfjs } from "react-pdf"
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
-const originPoint: Point2D = { x: 0, y: 0 } as Point2D
-
 /**
  * Describes the various stages of a single bar cutting operation (the
  * finite state machine that allows us to compute a single bar cutting
@@ -400,10 +398,14 @@ class App extends React.Component<Props, State> {
     ctx.putImageData(this.state.pageData, 0, 0)
 
     // picking the style for the line selection
-    const applyStyleDefault = () => {
+    const applyStyleDefault = (transparent: boolean = true) => {
       ctx.lineWidth = 2
       ctx.strokeStyle = "rgba(38, 18, 225, 0.5)"
       ctx.fillStyle = "rgba(42, 107, 169, 0.9)"
+      if (!transparent) {
+        ctx.strokeStyle = "#2e0757ff"
+        ctx.fillStyle = "#5e159fff"
+      }
     }
     applyStyleDefault()
 
@@ -448,12 +450,6 @@ class App extends React.Component<Props, State> {
     const vecU = { dx, dy }
     const vecV = { dx: dy, dy: -dx }
 
-    // a point on the first line
-    // this.drawPoint(ctx, {
-    //   x: this.state.staffHeightPoint.x - vecV.dx * height,
-    //   y: this.state.staffHeightPoint.y - vecV.dy * height,
-    // })
-
     // compute points
     const bottomLeftCorner = {
       x: this.state.topLeftCorner.x + vecV.dx * height,
@@ -475,7 +471,7 @@ class App extends React.Component<Props, State> {
         false
       )
       if (!pointProjectedTop) return
-      this.drawPoint(ctx, pointProjectedTop)
+      //this.drawPoint(ctx, pointProjectedTop)
       const pointProjectedBottom = Geometry.projectPointOnLine(
         bottomLeftCorner as Point2D,
         bottomRightCorner as Point2D,
@@ -483,15 +479,13 @@ class App extends React.Component<Props, State> {
         true
       )
       if (!pointProjectedBottom) return
-      this.drawPoint(ctx, pointProjectedBottom)
+      //this.drawPoint(ctx, pointProjectedBottom)
       //
       return {
         top: pointProjectedTop as Point2D,
         bottom: pointProjectedBottom as Point2D,
       }
     }
-
-    ctx.lineWidth = 4
 
     // BBOX: bottom segment of the bounding box
     this.drawLine(ctx, bottomLeftCorner, bottomRightCorner)
@@ -504,18 +498,27 @@ class App extends React.Component<Props, State> {
     // at the point the BBOX is drawn fully
     // ************************************
 
+    // picking the style for the bar break points
+    const applyStyleBarBreak = () => {
+      ctx.lineWidth = 3
+      ctx.textBaseline = "middle"
+      ctx.font = "20pt monospace"
+      ctx.strokeStyle = "#370a2cff"
+      ctx.fillStyle = "#5f0b4aff"
+    }
+
     // cut points
     var prevPoint = this.state.topLeftCorner
     var id = 0
     for (const point of this.state.barBreakPoints) {
+      applyStyleBarBreak()
+
       //this.drawPoint(ctx, point)
       var projected = projectToLines(point)
       if (!projected) continue
 
       this.drawLine(ctx, projected.top, projected.bottom)
-      ctx.textBaseline = "middle"
-      ctx.font = "20pt monospace"
-      ctx.strokeStyle = "#370a2cff"
+
       ctx.strokeText(
         `${id}`,
         projected.top.x - (projected.top.x - prevPoint.x) / 2,
@@ -524,15 +527,30 @@ class App extends React.Component<Props, State> {
 
       prevPoint = point
       id += 1
+
+      applyStyleDefault()
     }
     // bar break points
     if (!this.state.nextBarBreakPoint) return
 
-    this.drawPoint(ctx, this.state.nextBarBreakPoint)
+    // NOSHOW: the mouse selection of the breaking point
+    //this.drawPoint(ctx, this.state.nextBarBreakPoint)
 
     const lineCP = projectToLines(this.state.nextBarBreakPoint)
     if (!lineCP) return
     this.drawLine(ctx, lineCP.top, lineCP.bottom)
+
+    // BBOX: REDRAW the bounding box
+    applyStyleDefault(false)
+    // BBOX: top segment of the bounding box
+    this.drawLine(ctx, this.state.topLeftCorner, this.state.topRightCorner)
+
+    // BBOX: bottom segment of the bounding box
+    this.drawLine(ctx, bottomLeftCorner, bottomRightCorner)
+
+    // BBOX: side segments of the bounding box
+    this.drawLine(ctx, bottomLeftCorner, this.state.topLeftCorner)
+    this.drawLine(ctx, this.state.topRightCorner, bottomRightCorner)
 
     return
   }
