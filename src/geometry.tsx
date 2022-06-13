@@ -10,6 +10,12 @@ export type Point2D = {
   y: number
 }
 
+export type LineDifferential = {
+  dx: number
+  dy: number
+  length: number
+}
+
 /**
  * Data type for an angle stored in degrees.
  */
@@ -41,16 +47,15 @@ export type radian = number
  * @returns The ratio of the distance between {@link p1}
  * and {@link pProject}, and {@link p2} and {@link pProject}.
  */
-const proportionPointOnLine = (
+function proportionPointOnLine(
   p1: Point2D,
   p2: Point2D,
   pProject: Point2D,
   flip: boolean = false
-) => {
+): number {
   // assume all points are on line (otherwise unexpected results!)
   // p1 and p2 are the end points of the line
   // pProject is the point to project
-
   // check?
   const pProjectPrime = projectPointOnLine(p1, p2, pProject, flip)
   console.log(
@@ -63,17 +68,16 @@ const proportionPointOnLine = (
   else return (pProject.y - p1.y) / (p2.y - p1.y)
 }
 
-const projectPointOnLine = (
+function projectPointOnLine(
   p1: Point2D,
   p2: Point2D,
   pProject: Point2D,
   flip: boolean = false
-) => {
+): Point2D | undefined {
   // p1 x---X-----x p2
   //        |
   //        x pProject
   //
-
   const distance = measureDistance(p1, p2)
   if (distance === 0) return
 
@@ -117,7 +121,7 @@ const measureProportionOnLine = (
   return proportion
 }
 
-const measureLineDiff = (p1: Point2D, p2: Point2D) => {
+function measureLineDiff(p1: Point2D, p2: Point2D): LineDifferential {
   const dx = p2.x - p1.x
   const dy = p2.y - p1.y
   const length = Math.sqrt(dx * dx + dy * dy)
@@ -128,15 +132,15 @@ const measureLineDiff = (p1: Point2D, p2: Point2D) => {
   }
 }
 
-const measureDistance = (p1: Point2D, p2: Point2D) => {
+function measureDistance(p1: Point2D, p2: Point2D): number {
   return measureLineDiff(p1, p2).length
 }
 
-const measureHeightFromPoints = (
+function measureHeightFromPoints(
   p1: Point2D,
   p2: Point2D,
   pMiddle: Point2D
-) => {
+): number {
   const area = measureTriangleAreaFromPoints(p1, p2, pMiddle)
   const base = measureDistance(p1, p2)
   return (2 * area) / base
@@ -156,16 +160,15 @@ const measureHeightFromPoints = (
  * @returns The endpoints of the new segment that is parallel to
  * the segment formed by {@link p1} and {@link p2}.
  */
-const translateLineThroughPoint = (
+function translateLineThroughPoint(
   p1: Point2D,
   p2: Point2D,
   pPrime: Point2D
-) => {
+): { p1Prime: Point2D; p2Prime: Point2D; height: number } {
   // p1 x-------X-----x p2
   //             \
   //     (*)------x----(*)
   // p1Prime    pPrime   p2Prime
-
   // compute line vector of line (p1, p2), then the distance from the
   // line (p1, p2) to the point pPrime
   const vecLine = Geometry.measureLineDiff(p1, p2)
@@ -188,14 +191,15 @@ const translateLineThroughPoint = (
   return {
     p1Prime,
     p2Prime,
+    height: translationDistance,
   }
 }
 
-const measureTriangleAreaFromPoints = (
+function measureTriangleAreaFromPoints(
   p1: Point2D,
   p2: Point2D,
   p3: Point2D
-) => {
+): number {
   const a = measureDistance(p1, p2)
   const b = measureDistance(p2, p3)
   const c = measureDistance(p3, p1)
@@ -234,16 +238,15 @@ function measureAngleFromPoints(
   var AC = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
   return Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB))
 }
-const measureAngleFromPoints2 = (
+function measureAngleFromPoints2(
   p1: Point2D,
   p2: Point2D,
   pMiddle: Point2D
-) => {
+): number {
   // Measure angle in this configuration:
   //   p1
   //  /
   // pMiddle -- p2
-
   const numerator =
     p1.y * (pMiddle.x - p2.x) +
     pMiddle.y * (p2.x - p1.x) +
@@ -255,7 +258,6 @@ const measureAngleFromPoints2 = (
 
   const angleRad = Math.atan(ratio)
   //return angleRad
-
   const angleDeg = (angleRad * 180) / Math.PI
 
   if (angleDeg < 0) {
