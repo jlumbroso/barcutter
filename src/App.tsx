@@ -4,6 +4,7 @@ import { PDFPageProxy } from "pdfjs-dist/types/src/display/api"
 import PropTypes from "prop-types"
 
 import Geometry, { Point2D } from "./geometry"
+import { makeBarBoxesFromActiveBarCut, BarBox } from "./barbox"
 
 import "./App.css"
 
@@ -122,6 +123,8 @@ interface State {
   /*******************************************************
    * STATE VARIABLES OF THE ACTIVE BAR CUTTING OPERATION *
    *******************************************************/
+
+  barBoxes: BarBox[]
 }
 
 class App extends React.Component<Props, State> {
@@ -138,6 +141,7 @@ class App extends React.Component<Props, State> {
     staffHeightPoint: undefined,
     nextBarBreakPoint: undefined,
     barBreakPoints: [],
+    barBoxes: [],
   }
 
   constructor(props: Props) {
@@ -190,6 +194,17 @@ class App extends React.Component<Props, State> {
     this.redraw(ctx)
   }
 
+  onSave = (ctx: CanvasRenderingContext2D) => {
+    const redrawCallback = () => this.redraw(ctx)
+
+    this.setState(
+      {
+        activeCutStage: ActiveBarCuttingStage.Empty,
+      },
+      redrawCallback
+    )
+  }
+
   /**
    * Callback triggered when the user clicks the canvas.
    *
@@ -214,6 +229,14 @@ class App extends React.Component<Props, State> {
       }, stage: ${this.state.activeCutStage.toString()}`
     )
 
+    // redraw callback
+    const redrawCallback = (chain?: () => void): (() => void) => {
+      return () => {
+        this.redraw(ctx)
+        if (chain) chain()
+      }
+    }
+
     // *****************************************************************
     // FINITE STATE AUTOMATON TO COMPUTE WHAT IS THE NEXT STAGE OF THE
     // ACTIVE BAR CUTTING OPERATION
@@ -226,29 +249,38 @@ class App extends React.Component<Props, State> {
       // corner.
 
       case ActiveBarCuttingStage.TopLeft:
-        this.setState({
-          topLeftCorner: { x, y },
-          activeCutStage: ActiveBarCuttingStage.TopRight,
-        })
+        this.setState(
+          {
+            topLeftCorner: { x, y },
+            activeCutStage: ActiveBarCuttingStage.TopRight,
+          },
+          redrawCallback()
+        )
         break
 
       // STAGE 2: Same as Stage 1, but for the top right corner.
 
       case ActiveBarCuttingStage.TopRight:
-        this.setState({
-          topRightCorner: { x, y },
-          activeCutStage: ActiveBarCuttingStage.Height,
-        })
+        this.setState(
+          {
+            topRightCorner: { x, y },
+            activeCutStage: ActiveBarCuttingStage.Height,
+          },
+          redrawCallback()
+        )
         break
 
       // STAGE 3: Now measuring the height of the system, by setting
       // the "staffHeightPoint" based on the click location.
 
       case ActiveBarCuttingStage.Height:
-        this.setState({
-          staffHeightPoint: { x, y },
-          activeCutStage: ActiveBarCuttingStage.Cutting,
-        })
+        this.setState(
+          {
+            staffHeightPoint: { x, y },
+            activeCutStage: ActiveBarCuttingStage.Cutting,
+          },
+          redrawCallback()
+        )
         break
 
       // STAGE 4: Each click will determine a bar cut; we need also need
@@ -281,32 +313,33 @@ class App extends React.Component<Props, State> {
           this.props.lastCutThreshold &&
           proportionOfBox > this.props.lastCutThreshold
         ) {
-          this.setState({
-            activeCutStage: ActiveBarCuttingStage.Saving,
-          })
+          this.setState(
+            {
+              activeCutStage: ActiveBarCuttingStage.Saving,
+            },
+            // callback for when this state is changed
+            () => {
+              this.redraw(ctx)
+              this.onSave(ctx)
+            }
+          )
         }
         if (
           this.state.activeCutStage === ActiveBarCuttingStage.Cutting ||
           this.props.saveLastCut
         ) {
-          this.setState({
-            barBreakPoints: [...this.state.barBreakPoints, { x, y }],
-          })
+          this.setState(
+            {
+              barBreakPoints: [...this.state.barBreakPoints, { x, y }],
+            },
+            redrawCallback()
+          )
         }
         break
 
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
     // *****************************************************************
-
-    //
-    if (this.state.activeCutStage === ActiveBarCuttingStage.Saving) {
-      this.setState({
-        activeCutStage: ActiveBarCuttingStage.Empty,
-      })
-    }
-
-    this.redraw(ctx)
   }
 
   /**
@@ -396,6 +429,11 @@ class App extends React.Component<Props, State> {
   redraw = (ctx: CanvasRenderingContext2D) => {
     // erase canvas with fresh copy of the PDF page image
     ctx.putImageData(this.state.pageData, 0, 0)
+
+    // if no active barcutting is taking place, we end here
+    if (this.state.activeCutStage === ActiveBarCuttingStage.Empty) {
+      return
+    }
 
     // picking the style for the line selection
     const applyStyleDefault = (transparent: boolean = true) => {
