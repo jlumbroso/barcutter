@@ -427,38 +427,12 @@ class App extends React.Component<Props, State> {
 
     if (!this.state.staffHeightPoint) return
 
-    // STAGE
-    //this.drawPoint(ctx, this.state.staffHeightPoint)
-
-    //
-    const distance = Geometry.measureDistance(
-      this.state.topLeftCorner,
-      this.state.topRightCorner
-    )
-    if (distance === 0) return
-    const dx =
-      (this.state.topLeftCorner.x - this.state.topRightCorner.x) / distance
-    const dy =
-      (this.state.topLeftCorner.y - this.state.topRightCorner.y) / distance
-
-    const height = Geometry.measureHeightFromPoints(
-      this.state.topLeftCorner,
-      this.state.topRightCorner,
-      this.state.staffHeightPoint
-    )
-
-    const vecU = { dx, dy }
-    const vecV = { dx: dy, dy: -dx }
-
-    // compute points
-    const bottomLeftCorner = {
-      x: this.state.topLeftCorner.x + vecV.dx * height,
-      y: this.state.topLeftCorner.y + vecV.dy * height,
-    }
-    const bottomRightCorner = {
-      x: this.state.topRightCorner.x + vecV.dx * height,
-      y: this.state.topRightCorner.y + vecV.dy * height,
-    }
+    const { p1Prime: bottomLeftCorner, p2Prime: bottomRightCorner } =
+      Geometry.translateLineThroughPoint(
+        this.state.topLeftCorner,
+        this.state.topRightCorner,
+        this.state.staffHeightPoint
+      )
 
     // method to project to top and bottom
     const projectToLines = (

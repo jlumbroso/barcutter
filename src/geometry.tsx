@@ -142,6 +142,55 @@ const measureHeightFromPoints = (
   return (2 * area) / base
 }
 
+/**
+ * Given two points forming a segment, {@link p1} and {@link p2},
+ * and some point {@link pPrime} not on the line formed by the
+ * two points, returns a new segment, parallel to the original one,
+ * and on the line that goes through {@link pPrime}.
+ *
+ * @param p1 The leftmost point (with smallest {x}-coordinate).
+ * @param p2 The right point (with largest {x}-coordinate).
+ * @param pPrime A point that belons to the line on which the
+ *              new segment will be placed.
+ *
+ * @returns The endpoints of the new segment that is parallel to
+ * the segment formed by {@link p1} and {@link p2}.
+ */
+const translateLineThroughPoint = (
+  p1: Point2D,
+  p2: Point2D,
+  pPrime: Point2D
+) => {
+  // p1 x-------X-----x p2
+  //             \
+  //     (*)------x----(*)
+  // p1Prime    pPrime   p2Prime
+
+  // compute line vector of line (p1, p2), then the distance from the
+  // line (p1, p2) to the point pPrime
+  const vecLine = Geometry.measureLineDiff(p1, p2)
+  const vecOrthoLine = {
+    dx: -vecLine.dy,
+    dy: vecLine.dx,
+  }
+  const translationDistance = Geometry.measureHeightFromPoints(p1, p2, pPrime)
+
+  // compute points
+  const p1Prime = {
+    x: p1.x + vecOrthoLine.dx * translationDistance,
+    y: p1.y + vecOrthoLine.dy * translationDistance,
+  }
+  const p2Prime = {
+    x: p2.x + vecOrthoLine.dx * translationDistance,
+    y: p2.y + vecOrthoLine.dy * translationDistance,
+  }
+
+  return {
+    p1Prime,
+    p2Prime,
+  }
+}
+
 const measureTriangleAreaFromPoints = (
   p1: Point2D,
   p2: Point2D,
@@ -223,6 +272,7 @@ const Geometry = {
   measureDistance,
   measureHeightFromPoints,
   measureTriangleAreaFromPoints,
+  translateLineThroughPoint,
   radianToDegrees,
   degreesToRadian,
   getLineAngle,
