@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/barcutter/static/css/main.073c9b0a.css",
-    "main.js": "/barcutter/static/js/main.664b54dd.js",
+    "main.js": "/barcutter/static/js/main.a2cbaa8b.js",
     "static/js/787.4e8357a3.chunk.js": "/barcutter/static/js/787.4e8357a3.chunk.js",
     "static/media/k522-venice.pdf": "/barcutter/static/media/k522-venice.e59e5076e7afc608ddc7.pdf",
     "index.html": "/barcutter/index.html",
     "main.073c9b0a.css.map": "/barcutter/static/css/main.073c9b0a.css.map",
-    "main.664b54dd.js.map": "/barcutter/static/js/main.664b54dd.js.map",
+    "main.a2cbaa8b.js.map": "/barcutter/static/js/main.a2cbaa8b.js.map",
     "787.4e8357a3.chunk.js.map": "/barcutter/static/js/787.4e8357a3.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.073c9b0a.css",
-    "static/js/main.664b54dd.js"
+    "static/js/main.a2cbaa8b.js"
   ]
 }
