@@ -197,9 +197,21 @@ class App extends React.Component<Props, State> {
   onSave = (ctx: CanvasRenderingContext2D) => {
     const redrawCallback = () => this.redraw(ctx)
 
+    const rowBarBoxes = makeBarBoxesFromActiveBarCut(
+      this.state.topLeftCorner,
+      this.state.topRightCorner,
+      this.state.staffHeightPoint,
+      this.state.barBreakPoints,
+      0,
+      0
+    )
+
+    console.log("Barboxes:", rowBarBoxes)
+
     this.setState(
       {
         activeCutStage: ActiveBarCuttingStage.Empty,
+        barBoxes: [...this.state.barBoxes, ...rowBarBoxes],
       },
       redrawCallback
     )
