@@ -92,6 +92,8 @@ interface Props {
    * bar.
    */
   lastCutThreshold?: number
+
+  firstIndexOnPage: number
 }
 
 interface State {
@@ -129,8 +131,9 @@ interface State {
 
 class App extends React.Component<Props, State> {
   static defaultProps = {
-    lastCutThreshold: 0.98,
+    lastCutThreshold: 0.9,
     saveLastCut: true,
+    firstIndexOnPage: 0,
   }
 
   state: State = {
@@ -147,6 +150,22 @@ class App extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state.activeCutStage = ActiveBarCuttingStage.Empty
+  }
+
+  resetActiveCutting = (callback?: () => void) => {
+    // reset only the states having to do with the active
+    // bar cutting operation (i.e., NOT pageData and barBoxes)
+    this.setState(
+      {
+        activeCutStage: ActiveBarCuttingStage.TopLeft,
+        topLeftCorner: undefined,
+        topRightCorner: undefined,
+        staffHeightPoint: undefined,
+        nextBarBreakPoint: undefined,
+        barBreakPoints: [],
+      },
+      callback
+    )
   }
 
   /**
@@ -202,18 +221,19 @@ class App extends React.Component<Props, State> {
       this.state.topRightCorner,
       this.state.staffHeightPoint,
       this.state.barBreakPoints,
-      0,
-      0
+      this.state.barBoxes.length,
+      this.props.firstIndexOnPage
     )
 
     console.log("Barboxes:", rowBarBoxes)
 
     this.setState(
       {
-        activeCutStage: ActiveBarCuttingStage.Empty,
         barBoxes: [...this.state.barBoxes, ...rowBarBoxes],
       },
-      redrawCallback
+      () => {
+        this.resetActiveCutting(redrawCallback)
+      }
     )
   }
 
@@ -441,6 +461,21 @@ class App extends React.Component<Props, State> {
   redraw = (ctx: CanvasRenderingContext2D) => {
     // erase canvas with fresh copy of the PDF page image
     ctx.putImageData(this.state.pageData, 0, 0)
+
+    // draw the bar boxes
+    for (const barBox of this.state.barBoxes) {
+      ctx.strokeRect(
+        barBox.upperLeftCorner.x,
+        barBox.upperLeftCorner.y,
+        barBox.width,
+        barBox.height
+      )
+      ctx.strokeText(
+        `${barBox.indexInPage}`,
+        barBox.upperLeftCorner.x + barBox.width / 2,
+        barBox.upperLeftCorner.y + barBox.height / 2
+      )
+    }
 
     // if no active barcutting is taking place, we end here
     if (this.state.activeCutStage === ActiveBarCuttingStage.Empty) {
